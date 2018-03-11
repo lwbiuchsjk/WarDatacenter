@@ -75,14 +75,6 @@ wss.on("connection", function connection(ws, req) {
         if (typeof data == "string") {
             switch(data) {
                 case armyTemplate.faction.attackFaction : {
-                    fs.readFile(factionFile, "utf-8", function(error, data) {
-                        if (error) {
-                            console.log(error);
-                        } else {
-                            if (data[armyTemplate.faction.attackFaction])
-                        }
-                    })
-
                     var attackFactionFile = data + ".json";
                     var defenceFactionFile = armyTemplate.faction.defenceFaction + ".json";
                     fs.open(defenceFactionFile, "r", function(error, fd)  {
