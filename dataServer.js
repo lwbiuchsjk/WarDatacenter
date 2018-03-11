@@ -36,8 +36,8 @@ var armyTemplate = {
         HUNT_HORSE : "huntHorse"
     },
     faction : {
-        attackFaction : "attackFaction",
-        defenceFaction: "defenceFaction"
+        attackFaction : 'attackFaction',
+        defenceFaction: 'defenceFaction'
     },
 };
 
@@ -65,155 +65,119 @@ wss.on("connection", function connection(ws, req) {
     ws.send(msg);
 
     var factionFile = messageCode.FACTION_FILE;
-    fs.wirteFile(factionFile, JSON.stringify(messageCode.FACTION_FILE_TEMPLATE), function(error) {
-        if (error) {
-            console.log(error);
-        }
-    })
 
-    ws.on("message", function(data) {
-        if (typeof data == "string") {
-            switch(data) {
+    ws.on("message", function(msg) {
+        if (typeof msg == "string") {
+            var attackFaction, defenceFaction;
+            switch(msg) {
                 case armyTemplate.faction.attackFaction : {
-                    var attackFactionFile = data + ".json";
-                    var defenceFactionFile = armyTemplate.faction.defenceFaction + ".json";
-                    fs.open(defenceFactionFile, "r", function(error, fd)  {
+                    fs.readFile(factionFile, "utf-8", function(error, data) {
                         if (error) {
-                            fs.open(attackFactionFile, "r", function(error, fd) {
-                                if (error) {
-                                    console.log(attackFactionFile + " 等待写入...");
-                                    ws.send(data);
-                                } else {
-                                    console.log(attackFactionFile + " 已经存在...单独存在...错误...");
-                                }
-                            })
+                            console.log(error);
                         } else {
-                            console.log(defenceFactionFile + " 已经存在...");
-                            fs.open(attackFactionFile, "wx", function(error, fd) {
-                                if (!error) {
-                                    console.log(attackFactionFile + " 等待写入...准备进入战斗...");
+                            attackFaction = data[armyTemplate.faction.attackFaction];
+                            defenceFaction = data[armyTemplate.faction.defenceFaction];
+                            if (attackFaction == null) {
+                                console.log(msg + " 等待写入...");
+                                if (defenceFaction != null) {
+                                    console.log(armyTemplate.faction.defenceFaction + " 已经存在...准备进入战斗...");
                                     ws.send(messageCode.TROOP_CONFIG_READY);
                                 } else {
-                                    console.log(attackFactionFile + " 已经存在...双重存在...严重错误...");
-                                    throw error;
+                                    ws.send(msg);
                                 }
-                            })                      
+                            }
                         }
                     })
                     break;
                 }
                 case armyTemplate.faction.defenceFaction : {
-                    var attackFactionFile = armyTemplate.faction.attackFaction + ".json";
-                    var defenceFactionFile = data + ".json";
-                    fs.open(attackFactionFile, "r", function(error, fd)  {
+                    fs.readFile(factionFile, "utf-8", function(error, data) {
                         if (error) {
-                            fs.open(defenceFactionFile, "r", function(error, fd) {
-                                if (error) {
-                                    console.log(defenceFactionFile + " 等待写入...");
-                                    ws.send(data);
-                                } else {
-                                    console.log(defenceFactionFile + " 已经存在...单独存在...错误...");
-                                }
-                            })
+                            console.log(error);
                         } else {
-                            console.log(attackFactionFile + " 已经存在...");
-                            fs.open(defenceFactionFile, "wx", function(error, fd) {
-                                if (!error) {
-                                    console.log(defenceFactionFile + " 等待写入...准备进入战斗...");
-                                    ws.send(messageCode.TROOP_CONFIG_READY);                                    
+                            attackFaction = data[armyTemplate.faction.attackFaction];
+                            defenceFaction = data[armyTemplate.faction.defenceFaction];
+                            if (defenceFaction == null) {
+                                console.log(msg + " 等待写入...");
+                                if (attackFaction != null) {
+                                    console.log(armyTemplate.faction.attackFaction + " 已经存在...准备进入战斗...");
+                                    ws.send(messageCode.TROOP_CONFIG_READY);
                                 } else {
-                                    console.log(defenceFactionFile + " 已经存在...双重存在...严重错误...");
-                                    throw error;
+                                    ws.send(msg);
                                 }
-                            })                      
+                            }
                         }
                     })
                     break;
                 }
                 case messageCode.LOAD_TROOPS : {
-                    var attackFactionFile = armyTemplate.faction.attackFaction + ".json",
-                        defenceFactionFile = armyTemplate.faction.defenceFaction + ".json";
-                    fs.readFile(attackFactionFile, 'utf8', function(error, data) {
+                    fs.readFile(factionFile, 'utf8', function(error, data) {
                         if (error) {
                             console.log(error);
                         } else {
-                            console.log("send file: " + attackFactionFile);
-                            ws.send(data)
-                        }
-                    })
-                    fs.readFile(defenceFactionFile, 'utf8', function(error, data) {
-                        if (error) {
-                            console.log(error);
-                        } else {
-                            console.log("send file: " + defenceFactionFile);
+                            console.log("send troops...");
                             ws.send(data);
                         }
                     })
                     break;
                 }
                 case messageCode.DELETE_TROOPS : {
-                    var attackFactionFile = armyTemplate.faction.attackFaction + ".json",
-                        defenceFactionFile = armyTemplate.faction.defenceFaction + ".json";
-                    fs.unlink(attackFactionFile, function(error) {
+                    console.log(messageCode.DELETE_TROOPS);
+                    fs.writeFile(factionFile, JSON.stringify(messageCode.FACTION_FILE_TEMPLATE), function(error) {
                         if (error) {
                             console.log(error);
-                        } else {
-                            ws.send("delete file successfully: " + attackFactionFile);
-                            fs.unlink(defenceFactionFile, function(error) {
-                                if (error) {
-                                    console.log(error);
-                                } else {
-                                    ws.send("delete file successfully: " + defenceFactionFile);
-                                    ws.close();
-                                }                    
-                            })
-                        }
-                    }); 
+                        };
+                    });
                     break;
                 }
                 default : {
                     var jsonData;
                     try {
-                        jsonData = JSON.parse(data);
+                        jsonData = JSON.parse(msg);
                     } catch (error) {
                         console.log(error)
                         return;
                     }
-                    if (jsonData) {
+                    if (jsonData != null) {
                         console.log(jsonData);
-                        var filePath = jsonData.faction + ".json";
-                        var otherFilePath;
-                        if (jsonData.faction === armyTemplate.faction.attackFaction) {
-                            otherFilePath = armyTemplate.faction.defenceFaction + ".json";
-                        } else if (jsonData.faction === armyTemplate.faction.defenceFaction) {
-                            otherFilePath = armyTemplate.faction.attackFaction + ".json";
-                        }
-                        console.log(filePath);
-                        fs.open(filePath, "w", function(error, fd) {
+                        fs.open(factionFile, "r", function(error, fd) {
                             if (error) {
-                                return console.log(error);
-                            }
-                            console.log(filePath + " 文件打开成功！")
-                            fs.writeFile(filePath, JSON.stringify(jsonData), function(error) {
-                                if(error) {
-                                    throw error;
-                                }
-                                console.log(filePath + " 文件写入成功！");
-                                console.log(otherFilePath);
-                                fs.readFile(otherFilePath, 'utf8', function(error, data) {
-                                    if (!error) {
-                                        console.log(otherFilePath + " 写入成功！" + "\n准备读入数据！");
-                                        console.log(data);
-                                        ws.send(messageCode.WAR_BEGIN);
-                                        ws.close();
-                                    } else {
+                                console.log(error);
+                            } else {
+                                fs.readFile(factionFile, "utf-8", function(error, data) {
+                                    if (error) {
                                         console.log(error);
+                                    } else {
+                                        var jsonTmp = JSON.parse(data);
+                                        jsonTmp[jsonData.faction] = jsonData.troops;
+                                        console.log(jsonTmp);
+                                        fs.writeFile(factionFile, JSON.stringify(jsonTmp), function(error) {
+                                            if (error) {
+                                                console.log(error);
+                                            } else {
+                                                console.log(jsonData.faction + " 写入成功...");
+                                                fs.readFile(factionFile, "utf-8", function(error, data) {
+                                                    if(error) {
+                                                        console.log(error);
+                                                    } else {
+                                                        var tmp = JSON.parse(data);
+                                                        if (tmp[armyTemplate.faction.attackFaction] == null || tmp[armyTemplate.faction.defenceFaction] == null) {
+                                                            console.log(messageCode.TROOP_CONFIG_READY)
+                                                            ws.send(messageCode.TROOP_CONFIG_READY);
+                                                        } else {
+                                                            console.log(messageCode.WAR_BEGIN);
+                                                            ws.send(messageCode.WAR_BEGIN);
+                                                        }
+                                                    }
+                                                })
+                                            }
+                                        })
                                     }
                                 })
-                            });
+                            }
                         })
                     } else {
-                        console.log(data);
+                        console.log(msg);
                     }
                     break;
                 }
