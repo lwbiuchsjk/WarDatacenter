@@ -123,11 +123,16 @@ wss.on("connection", function connection(ws, req) {
                 }
                 case messageCode.DELETE_TROOPS : {
                     console.log(messageCode.DELETE_TROOPS);
+                    /*
                     fs.writeFile(factionFile, JSON.stringify(messageCode.FACTION_FILE_TEMPLATE), function(error) {
                         if (error) {
                             console.log(error);
-                        };
+                        }; else {
+                            ws.close();
+                        }
                     });
+                    */
+                   ws.close();
                     break;
                 }
                 default : {
