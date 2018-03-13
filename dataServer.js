@@ -36,8 +36,8 @@ var armyTemplate = {
         HUNT_HORSE : "huntHorse"
     },
     faction : {
-        attackFaction : 'attackFaction',
-        defenceFaction: 'defenceFaction'
+        attackFaction : "attackFaction",
+        defenceFaction: "defenceFaction"
     },
 };
 
@@ -68,23 +68,26 @@ wss.on("connection", function connection(ws, req) {
 
     ws.on("message", function(msg) {
         if (typeof msg == "string") {
-            var attackFaction, defenceFaction;
+            var attackTroops, defenceTroops, tmp;
             switch(msg) {
                 case armyTemplate.faction.attackFaction : {
                     fs.readFile(factionFile, "utf-8", function(error, data) {
                         if (error) {
                             console.log(error);
                         } else {
-                            attackFaction = data[armyTemplate.faction.attackFaction];
-                            defenceFaction = data[armyTemplate.faction.defenceFaction];
-                            if (attackFaction == null) {
+                            tmp = JSON.parse(data);
+                            attackTroops = tmp[armyTemplate.faction.attackFaction];
+                            defenceTroops = tmp[armyTemplate.faction.defenceFaction];
+                            if (attackTroops == null) {
                                 console.log(msg + " 等待写入...");
-                                if (defenceFaction != null) {
+                                if (defenceTroops != null) {
                                     console.log(armyTemplate.faction.defenceFaction + " 已经存在...准备进入战斗...");
                                     ws.send(messageCode.TROOP_CONFIG_READY);
                                 } else {
                                     ws.send(msg);
                                 }
+                            } else if (defenceTroops != null) {
+                                ws.send(messageCode.WAR_BEGIN);
                             }
                         }
                     })
@@ -95,16 +98,19 @@ wss.on("connection", function connection(ws, req) {
                         if (error) {
                             console.log(error);
                         } else {
-                            attackFaction = data[armyTemplate.faction.attackFaction];
-                            defenceFaction = data[armyTemplate.faction.defenceFaction];
-                            if (defenceFaction == null) {
+                            tmp = JSON.parse(data);
+                            attackTroops = tmp[armyTemplate.faction.attackFaction];
+                            defenceTroops = tmp[armyTemplate.faction.defenceFaction];
+                            if (defenceTroops == null) {
                                 console.log(msg + " 等待写入...");
-                                if (attackFaction != null) {
+                                if (attackTroops != null) {
                                     console.log(armyTemplate.faction.attackFaction + " 已经存在...准备进入战斗...");
                                     ws.send(messageCode.TROOP_CONFIG_READY);
                                 } else {
                                     ws.send(msg);
                                 }
+                            } else if (attackTroops != null) {
+                                ws.send(messageCode.WAR_BEGIN);
                             }
                         }
                     })
@@ -144,7 +150,6 @@ wss.on("connection", function connection(ws, req) {
                         return;
                     }
                     if (jsonData != null) {
-                        console.log(jsonData);
                         fs.open(factionFile, "r", function(error, fd) {
                             if (error) {
                                 console.log(error);
