@@ -65,6 +65,12 @@ wss.on("connection", function connection(ws, req) {
     ws.send(msg);
 
     var factionFile = messageCode.FACTION_FILE;
+    fs.open(factionFile, "r", function(error) {
+        if (error) {
+            console.log(error);
+            fs.writeFileSync(factionFile, JSON.stringify(messageCode.FACTION_FILE_TEMPLATE));
+        } 
+    })
 
     ws.on("message", function(msg) {
         if (typeof msg == "string") {
@@ -133,12 +139,11 @@ wss.on("connection", function connection(ws, req) {
                     fs.writeFile(factionFile, JSON.stringify(messageCode.FACTION_FILE_TEMPLATE), function(error) {
                         if (error) {
                             console.log(error);
-                        }; else {
+                        } else {
                             ws.close();
                         }
                     });
                     */
-                   ws.close();
                     break;
                 }
                 default : {
@@ -160,7 +165,23 @@ wss.on("connection", function connection(ws, req) {
                                     } else {
                                         var jsonTmp = JSON.parse(data);
                                         jsonTmp[jsonData.faction] = jsonData.troops;
-                                        console.log(jsonTmp);
+                                        fs.writeFileSync(factionFile, JSON.stringify(jsonTmp));
+                                        console.log(jsonData.faction + " 写入成功...");
+                                        fs.readFile(factionFile, "utf-8", function(error, data) {
+                                            if(error) {
+                                                console.log(error);
+                                            } else {
+                                                var tmp = JSON.parse(data);
+                                                if (tmp[armyTemplate.faction.attackFaction] == null || tmp[armyTemplate.faction.defenceFaction] == null) {
+                                                    console.log(messageCode.TROOP_CONFIG_READY)
+                                                    ws.send(messageCode.TROOP_CONFIG_READY);
+                                                } else {
+                                                    console.log(messageCode.WAR_BEGIN);
+                                                    ws.send(messageCode.WAR_BEGIN);
+                                                }
+                                            }
+                                        })
+                                        /*
                                         fs.writeFile(factionFile, JSON.stringify(jsonTmp), function(error) {
                                             if (error) {
                                                 console.log(error);
@@ -182,6 +203,7 @@ wss.on("connection", function connection(ws, req) {
                                                 })
                                             }
                                         })
+                                        */
                                     }
                                 })
                             }
