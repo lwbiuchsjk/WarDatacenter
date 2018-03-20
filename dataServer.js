@@ -32,9 +32,14 @@ fs.open(unitConfigFile, "r", function(error, fd) {
                 for (var iter in unitTemplates.troops) {
                     var unit = {};
                     for (var num in unitTemplates.troops[iter]) {
-                        if (num != unitTemplates.template.speciality) {
-                            unit[num] = unitTemplates.troops[iter][num]
+                        var record = unitTemplates.troops[iter][num];
+                        if (num == unitTemplates.template.speciality) {
+                            record = "";
+                            for (var time in unitTemplates.troops[iter][num]) {
+                                record += unitTemplates.troops[iter][num][time] + ";";
+                            }
                         }
+                        unit[num] = record;
                     }
                     console.log(unit);
                     Unit.create(unit)
