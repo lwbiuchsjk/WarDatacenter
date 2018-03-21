@@ -1,10 +1,7 @@
-//import {local.armyTemplate, local.messageCode, Unit} from "template.js";
-
-        　　　　　　　　　　
-
 var local = require("./template");
 var http = require('http');
 var url = require('url');
+var path = require('path');
 var Sequelize = require('sequelize');
 
 var dataFile = "battle.db";
@@ -17,16 +14,26 @@ var sequelize = new Sequelize('sqlite:/project/JS/WarDatacenter/' + dataFile);
 var WebSocket = require("ws");
 var fs = require("fs");
 var wss = new WebSocket.Server({port: 3000});
-var msg = "hello";
+var helloMsg = "hello";
 
-var Unit = sequelize.import("./models/unit");    
+var UnitTemplate = sequelize.import("./models/unit_template");    
+var Unit = sequelize.import("./models/unit");
+
+
 //var models = require("./models");
-//var Unit = sequelize.import()
+sequelize.authenticate()
+    .then(function() {
+        console.log('Connection has been established successfully.');
+    })
+    .catch(function(err) {
+       console.error('Unable to connect to the database:', err);
+    });
+
 fs.open(unitConfigFile, "r", function(error, fd) {
     if (error) {
         console.log("no unit config file!!!");
     } else {
-        Unit.sync({force : true})
+        UnitTemplate.sync({force : true})
             .then(function() {
                 var unitTemplates = JSON.parse(fs.readFileSync(unitConfigFile, "utf-8"));
                 for (var iter in unitTemplates.troops) {
@@ -42,40 +49,26 @@ fs.open(unitConfigFile, "r", function(error, fd) {
                         unit[num] = record;
                     }
                     console.log(unit);
-                    Unit.create(unit)
+                    UnitTemplate.create(unit)
                     .then(function (result) {
-                        console.log(result.dataValues);
+                        console.log("data reload ready...");
                     })
                     .catch(function (err) {
                         console.log(err);
                     })
                 }
-                console.log("data reload ready...");
             })
     }
 })
+Unit.sync({force : true});
 
 wss.on("connection", function connection(ws, req) {
     console.log("connect open");
-    ws.send(msg);
+    ws.send(helloMsg);
 
-    var factionFile = local.messageCode.FACTION_FILE;
-    fs.open(factionFile, "wx", function(error) {
-        if (error) {
-            console.log(factionFile + " exsit...");
-        } else {
-            fs.writeFileSync(factionFile, JSON.stringify(local.messageCode.FACTION_FILE_TEMPLATE));
-            console.log(factionFile + " create successfully...");
-        }
-    })
+    //Unit.sync();
+    var factionFile = './factionTroops.json';
 
-    sequelize.authenticate()
-    .then(function() {
-        console.log('Connection has been established successfully.');
-    })
-    .catch(function(err) {
-       console.error('Unable to connect to the database:', err);
-    });
 
     ws.on("message", function(msg) {
         if (typeof msg == "string") {
@@ -83,7 +76,7 @@ wss.on("connection", function connection(ws, req) {
             switch(msg) {
                 case local.messageCode.LOAD_UNIT_TEMPLATE : {
                     console.log(msg);
-                    Unit.findAll()
+                    UnitTemplate.findAll()
                         .then(function(rawData) {
                             var jsonData = [];
                             rawData.forEach(function(unit) {
@@ -94,72 +87,42 @@ wss.on("connection", function connection(ws, req) {
                     break;
                 }
                 case local.armyTemplate.faction.attackFaction : {
-                    fs.readFile(factionFile, "utf-8", function(error, data) {
-                        if (error) {
-                            console.log(error);
-                        } else {
-                            console.log(data);
-                            tmp = JSON.parse(data);
-                            attackTroops = tmp[local.armyTemplate.faction.attackFaction];
-                            defenceTroops = tmp[local.armyTemplate.faction.defenceFaction];
-                            if (attackTroops == null) {
-                                console.log(msg + " 等待写入...");
-                                if (defenceTroops != null) {
-                                    console.log(local.armyTemplate.faction.defenceFaction + " 已经存在...准备进入战斗...");
-                                    ws.send(local.messageCode.TROOP_CONFIG_READY);
-                                } else {
-                                    ws.send(msg);
-                                }
-                            } else if (defenceTroops != null) {
-                                ws.send(local.messageCode.WAR_BEGIN);
-                            }
-                        }
-                    })
+                    checkFaction(msg, 10);
                     break;
                 }
                 case local.armyTemplate.faction.defenceFaction : {
-                    fs.readFile(factionFile, "utf-8", function(error, data) {
-                        if (error) {
-                            console.log(error);
-                        } else {
-                            tmp = JSON.parse(data);
-                            attackTroops = tmp[local.armyTemplate.faction.attackFaction];
-                            defenceTroops = tmp[local.armyTemplate.faction.defenceFaction];
-                            if (defenceTroops == null) {
-                                console.log(msg + " 等待写入...");
-                                if (attackTroops != null) {
-                                    console.log(local.armyTemplate.faction.attackFaction + " 已经存在...准备进入战斗...");
-                                    ws.send(local.messageCode.TROOP_CONFIG_READY);
-                                } else {
-                                    ws.send(msg);
-                                }
-                            } else if (attackTroops != null) {
-                                ws.send(local.messageCode.WAR_BEGIN);
-                            }
-                        }
-                    })
+                    checkFaction(msg, 10);
                     break;
                 }
                 case local.messageCode.LOAD_TROOPS : {
-                    fs.readFile(factionFile, 'utf8', function(error, data) {
-                        if (error) {
-                            console.log(error);
-                        } else {
-                            console.log("send troops...");
-                            ws.send(data);
-                        }
+                    var attackFaction = {
+                        faction : local.armyTemplate.faction.attackFaction,
+                        troops : []
+                    },
+                        defenceFaction = {
+                        faction : local.armyTemplate.faction.defenceFaction,
+                        troops : []
+                    }
+                    Unit.findAll({where : {faction : attackFaction.faction}})
+                    .then(function(troops) {
+                        console.log(troops);
+                        troops.forEach(function(unit) {
+                            attackFaction.troops.push(unit.get({plain : true}));
+                        })
+                        ws.send(JSON.stringify(attackFaction));
+                    })
+                    Unit.findAll({where : {faction : defenceFaction.faction}})
+                    .then(function(troops) {
+                        troops.forEach(function(unit) {
+                            defenceFaction.troops.push(unit.get({plain : true}));
+                        })
+                        ws.send(JSON.stringify(defenceFaction));
                     })
                     break;
                 }
                 case local.messageCode.DELETE_TROOPS : {
                     console.log(local.messageCode.DELETE_TROOPS);
-                    fs.writeFile(factionFile, JSON.stringify(local.messageCode.FACTION_FILE_TEMPLATE), function(error) {
-                        if (error) {
-                            console.log(error);
-                        } else {
-                            ws.close();
-                        }
-                    });
+                    //Unit.sync({force : true});
                     break;
                 }
                 default : {
@@ -167,40 +130,16 @@ wss.on("connection", function connection(ws, req) {
                     try {
                         jsonData = JSON.parse(msg);
                     } catch (error) {
-                        console.log(error)
+                        console.log(msg)
                         return;
                     }
                     if (jsonData != null) {
-                        fs.open(factionFile, "r", function(error, fd) {
-                            if (error) {
-                                console.log(error);
-                            } else {
-                                fs.readFile(factionFile, "utf-8", function(error, data) {
-                                    if (error) {
-                                        console.log(error);
-                                    } else {
-                                        var jsonTmp = JSON.parse(data);
-                                        jsonTmp[jsonData.faction] = jsonData.troops;
-                                        fs.writeFileSync(factionFile, JSON.stringify(jsonTmp));
-                                        console.log(jsonData.faction + " 写入成功...");
-                                        fs.readFile(factionFile, "utf-8", function(error, data) {
-                                            if(error) {
-                                                console.log(error);
-                                            } else {
-                                                var tmp = JSON.parse(data);
-                                                if (tmp[local.armyTemplate.faction.attackFaction] == null || tmp[local.armyTemplate.faction.defenceFaction] == null) {
-                                                    console.log(local.messageCode.TROOP_CONFIG_READY)
-                                                    ws.send(local.messageCode.TROOP_CONFIG_READY);
-                                                } else {
-                                                    console.log(local.messageCode.WAR_BEGIN);
-                                                    ws.send(local.messageCode.WAR_BEGIN);
-                                                }
-                                            }
-                                        })
-                                    }
+                        jsonData.forEach(function(jsonUnit) {
+                            Unit.create(jsonUnit)
+                                .then(function(result) {
                                 })
-                            }
                         })
+                        checkFaction(jsonData[0]["faction"], jsonData.length);
                     } else {
                         console.log(msg);
                     }
@@ -210,13 +149,46 @@ wss.on("connection", function connection(ws, req) {
         }
         else if (typeof data == "object") {
             console.log("obeject!!");
-            console.log(data);
         }
     })
 
     ws.on("close", function(data) {
+        Unit.sync({force : true});
         console.log("connection is cancelled by client!!!");
     });
+
+    var checkFaction = function(faction, troopCount) {
+        var otherFaction;
+        faction === local.armyTemplate.faction.attackFaction ? otherFaction = local.armyTemplate.faction.defenceFaction : 
+            otherFaction = local.armyTemplate.faction.attackFaction;
+        Unit.count({where : {faction : faction}})
+        .then(function(result) {
+            if (result === troopCount) {
+                console.log(faction + " ready...");
+                Unit.count({where : {faction : otherFaction}})
+                .then(function(result) {
+                    if (result === troopCount) {
+                        console.log(faction + " ready...");
+                        ws.send(local.messageCode.WAR_BEGIN);
+                    } else {
+                        console.log(otherFaction + " waiting...");
+                        ws.send(local.messageCode.TROOP_CONFIG_READY);
+                    }
+                })
+            } else {
+                Unit.count({where : {faction : otherFaction}})
+                .then(function(result) {
+                    if (result === troopCount) {
+                        console.log(faction + " ready...");
+                        ws.send(local.messageCode.TROOP_CONFIG_READY);
+                    } else {
+                        console.log(otherFaction + " waiting...");
+                        ws.send(faction);
+                    }
+                })
+            }
+        })
+    }
 });
 
 
