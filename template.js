@@ -53,30 +53,7 @@ exports.messageCode = {
     },
     LOAD_UNIT_TEMPLATE : "loadUnitTemplate",
     CHECK_PLAYER : "checkPlayer"
-}
-
-
-/*
-exports.WebMsg = function() {
-    this.type = null;
-    this.value = null
 };
-
-exports.WebMsg.TYPE_CLASS = {
-    STRING : "string",
-    DATA_RECORD : "dataRecord"
-};
-
-WebMsg.prototype.loadMsg = function(rawMsg) {
-    if (rawMsg) {
-        if (rawMsg.type != null && rawMsg.type in this.TYPE_CLASS && rawMsg.value != null) {
-            this.type = rawMsg.type;
-            this.value = rawMsg.type;
-        }
-    }
-};
-*/
-
 
 MessageChecker = function() {
     this.type = null;

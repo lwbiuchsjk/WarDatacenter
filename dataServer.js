@@ -70,28 +70,28 @@ wss.on("connection", function connection(ws, req) {
 
 
     ws.on("message", function(msg) {
-        var msg = new local.WebMsgParser(msg);
-        if (msg.type === local.WebMsgParser.TYPE_CLASS.STRING) {
+        var parseMsg = new local.WebMsgParser(msg);
+        if (parseMsg.type === local.WebMsgParser.TYPE_CLASS.STRING) {
             var attackTroops, defenceTroops, tmp;
-            switch(msg) {
+            switch(parseMsg.value) {
                 case local.messageCode.LOAD_UNIT_TEMPLATE : {
-                    console.log(msg);
+                    console.log(parseMsg.value);
                     UnitTemplate.findAll()
                         .then(function(rawData) {
                             var jsonData = [];
                             rawData.forEach(function(unit) {
                                 jsonData.push(unit.get({plain : true}));
                             })
-                            ws.send(JSON.stringify(jsonData));
+                            ws.send(new local.WebMsgMaker(local.WebMsgMaker.TYPE_CLASS.DATA_RECORD, jsonData).toJSON());
                         })
                     break;
                 }
                 case local.armyTemplate.faction.attackFaction : {
-                    checkFaction(msg, 10);
+                    checkFaction(parseMsg.value, 10);
                     break;
                 }
                 case local.armyTemplate.faction.defenceFaction : {
-                    checkFaction(msg, 10);
+                    checkFaction(parseMsg.value, 10);
                     break;
                 }
                 case local.messageCode.LOAD_TROOPS : {
@@ -109,14 +109,14 @@ wss.on("connection", function connection(ws, req) {
                         troops.forEach(function(unit) {
                             attackFaction.troops.push(unit.get({plain : true}));
                         })
-                        ws.send(JSON.stringify(attackFaction));
+                        ws.send(new local.WebMsgMaker(local.WebMsgMaker.TYPE_CLASS.DATA_RECORD, attackFaction).toJSON());
                     })
                     Unit.findAll({where : {faction : defenceFaction.faction}})
                     .then(function(troops) {
                         troops.forEach(function(unit) {
                             defenceFaction.troops.push(unit.get({plain : true}));
                         })
-                        ws.send(JSON.stringify(defenceFaction));
+                        ws.send(new local.WebMsgMaker(local.WebMsgMaker.TYPE_CLASS.DATA_RECORD, defenceFaction).toJSON());
                     })
                     break;
                 }
@@ -126,18 +126,18 @@ wss.on("connection", function connection(ws, req) {
                     break;
                 }
                 default : {
-                    console.log(msg.value)
+                    console.log(parseMsg.value)
                     break;
                 }
             }
         }
-        else if (msg.type === local.WebMsgParser.TYPE_CLASS.DATA_RECORD) {
-            msg.value.forEach(function(jsonUnit) {
+        else if (parseMsg.type === local.WebMsgParser.TYPE_CLASS.DATA_RECORD) {
+            parseMsg.value.forEach(function(jsonUnit) {
                 Unit.create(jsonUnit)
                     .then(function(result) {
                     })
             })
-            checkFaction(msg.value[0]["faction"], msg.value.length);
+            checkFaction(parseMsg.value[0]["faction"], parseMsg.value.length);
         }
     })
 
@@ -158,10 +158,10 @@ wss.on("connection", function connection(ws, req) {
                 .then(function(result) {
                     if (result === troopCount) {
                         console.log(faction + " ready...");
-                        ws.send(local.messageCode.WAR_BEGIN);
+                        ws.send(new local.WebMsgMaker(local.WebMsgMaker.TYPE_CLASS.STRING, local.messageCode.WAR_BEGIN).toJSON());
                     } else {
                         console.log(otherFaction + " waiting...");
-                        ws.send(local.messageCode.TROOP_CONFIG_READY);
+                        ws.send(new local.WebMsgMaker(local.WebMsgMaker.TYPE_CLASS.STRING, local.messageCode.TROOP_CONFIG_READY).toJSON());
                     }
                 })
             } else {
@@ -169,10 +169,10 @@ wss.on("connection", function connection(ws, req) {
                 .then(function(result) {
                     if (result === troopCount) {
                         console.log(faction + " ready...");
-                        ws.send(local.messageCode.TROOP_CONFIG_READY);
+                        ws.send(new local.WebMsgMaker(local.WebMsgMaker.TYPE_CLASS.STRING, local.messageCode.TROOP_CONFIG_READY).toJSON());
                     } else {
                         console.log(otherFaction + " waiting...");
-                        ws.send(faction);
+                        ws.send(new local.WebMsgMaker(local.WebMsgMaker.TYPE_CLASS.STRING, faction).toJSON());
                     }
                 })
             }
