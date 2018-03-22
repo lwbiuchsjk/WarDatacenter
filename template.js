@@ -51,5 +51,106 @@ exports.messageCode = {
         attackFaction : null,
         defenceFaction : null,
     },
-    LOAD_UNIT_TEMPLATE : "loadUnitTemplate"
+    LOAD_UNIT_TEMPLATE : "loadUnitTemplate",
+    CHECK_PLAYER : "checkPlayer"
 }
+
+
+/*
+exports.WebMsg = function() {
+    this.type = null;
+    this.value = null
+};
+
+exports.WebMsg.TYPE_CLASS = {
+    STRING : "string",
+    DATA_RECORD : "dataRecord"
+};
+
+WebMsg.prototype.loadMsg = function(rawMsg) {
+    if (rawMsg) {
+        if (rawMsg.type != null && rawMsg.type in this.TYPE_CLASS && rawMsg.value != null) {
+            this.type = rawMsg.type;
+            this.value = rawMsg.type;
+        }
+    }
+};
+*/
+
+
+MessageChecker = function() {
+    this.type = null;
+    this.value = null;
+};
+const TYPE_CLASS = {
+    STRING : "STRING",
+    DATA_RECORD : "DATA_RECORD"
+};
+
+var checkInput = function(msgType) {
+    return (msgType in TYPE_CLASS)
+};
+
+var WebMsgMaker = function(msgType, msgValue) {
+    this._type = null;
+    this._value = null;
+    if (msgType != null && msgValue != null) {
+        if (checkInput(msgType)) {
+            this._type = msgType;
+            this._value = msgValue;
+        } else {
+            throw "msg WRONG TYPE!!!"
+        }
+    } else {
+        throw "msg FORMAT ERROR!!!"
+    }
+};
+WebMsgMaker.TYPE_CLASS = TYPE_CLASS;
+WebMsgMaker.prototype.toJSON = function() {
+    var msg = this;
+    return JSON.stringify({
+        type : msg._type,
+        value : msg._value
+    });
+};
+
+var WebMsgParser = function(msg) {
+    this._type = null;
+    this._value = null;
+    var rawData = JSON.parse(msg);
+    if (rawData.type != null && rawData.value != null) {
+        if (checkInput(rawData.type)) {
+            this._type = rawData.type;
+            this._value = rawData.value;
+        } else {
+            throw "msg WRONG TYPE!!!"
+        }
+    } else {
+        throw "msg FORMAT ERROR!!!"
+    }
+};
+WebMsgParser.prototype = {
+    get type () {
+        if (this._type != null) {
+            return this._type;
+        }
+    },
+    get value() {
+        if (this._value != null) {
+            return this._value;
+        }
+    }
+};
+WebMsgParser.TYPE_CLASS = TYPE_CLASS;
+
+
+exports.WebMsgMaker = WebMsgMaker;
+exports.WebMsgParser = WebMsgParser;
+
+
+/*
+exports.WebMsg.TYPE_CLASS = enumeration({
+    STRING : "string",
+    DATA_RECORD : "dataRecord"
+})
+*/

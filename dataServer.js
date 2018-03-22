@@ -48,7 +48,6 @@ fs.open(unitConfigFile, "r", function(error, fd) {
                         }
                         unit[num] = record;
                     }
-                    console.log(unit);
                     UnitTemplate.create(unit)
                     .then(function (result) {
                         console.log("data reload ready...");
@@ -64,14 +63,15 @@ Unit.sync({force : true});
 
 wss.on("connection", function connection(ws, req) {
     console.log("connect open");
-    ws.send(helloMsg);
+    ws.send(new local.WebMsgMaker(local.WebMsgMaker.TYPE_CLASS.STRING, helloMsg).toJSON());
 
     //Unit.sync();
     var factionFile = './factionTroops.json';
 
 
     ws.on("message", function(msg) {
-        if (typeof msg == "string") {
+        var msg = new local.WebMsgParser(msg);
+        if (msg.type === local.WebMsgParser.TYPE_CLASS.STRING) {
             var attackTroops, defenceTroops, tmp;
             switch(msg) {
                 case local.messageCode.LOAD_UNIT_TEMPLATE : {
@@ -126,29 +126,18 @@ wss.on("connection", function connection(ws, req) {
                     break;
                 }
                 default : {
-                    var jsonData;
-                    try {
-                        jsonData = JSON.parse(msg);
-                    } catch (error) {
-                        console.log(msg)
-                        return;
-                    }
-                    if (jsonData != null) {
-                        jsonData.forEach(function(jsonUnit) {
-                            Unit.create(jsonUnit)
-                                .then(function(result) {
-                                })
-                        })
-                        checkFaction(jsonData[0]["faction"], jsonData.length);
-                    } else {
-                        console.log(msg);
-                    }
+                    console.log(msg.value)
                     break;
                 }
             }
         }
-        else if (typeof data == "object") {
-            console.log("obeject!!");
+        else if (msg.type === local.WebMsgParser.TYPE_CLASS.DATA_RECORD) {
+            msg.value.forEach(function(jsonUnit) {
+                Unit.create(jsonUnit)
+                    .then(function(result) {
+                    })
+            })
+            checkFaction(msg.value[0]["faction"], msg.value.length);
         }
     })
 
