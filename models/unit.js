@@ -6,7 +6,7 @@ module.exports = function(sequelize, DataTypes) {
         position : DataTypes.STRING,
         title : DataTypes.INTEGER,
         faction : DataTypes.STRING,
-        serial : DataTypes.INTEGER,
+        serialNumber : DataTypes.INTEGER,
         sequence : DataTypes.STRING,
         attackWeapon : DataTypes.INTEGER,
         attackFormation : DataTypes.INTEGER,
