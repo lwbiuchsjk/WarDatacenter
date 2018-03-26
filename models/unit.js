@@ -1,5 +1,6 @@
 module.exports = function(sequelize, DataTypes) {
     return sequelize.define("unit_table", {
+        playerID : DataTypes.INTEGER,
         unit : DataTypes.STRING,
         life : DataTypes.INTEGER,
         status : DataTypes.STRING,

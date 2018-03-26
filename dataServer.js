@@ -113,11 +113,6 @@ wss.on("connection", function connection(ws, req) {
                         })
                         break;
                     }
-                    case local.messageCode.DELETE_TROOPS : {
-                        console.log(local.messageCode.DELETE_TROOPS);
-                        //Unit.sync({force : true});
-                        break;
-                    }
                     default : {
                         console.log(parsedMsg.value)
                     }
@@ -142,7 +137,6 @@ wss.on("connection", function connection(ws, req) {
                 break;
             }
             case local.WebMsg.TYPE_CLASS.PLAYER_DATA : {
-                console.log(parsedMsg.value);
                 var playerMsg = new local.PlayerMsg(parsedMsg.value),
                     otherFaction = playerMsg.otherFaction;
                 var condition = {
@@ -150,99 +144,128 @@ wss.on("connection", function connection(ws, req) {
                         battleID : playerMsg.battleID
                     }
                 }
-                Player.findAndCount(condition).then(function(result) {
-                    switch (result.count) {
-                        case 0 : {
-                            if (playerMsg.troops == null) {
-                                Player.create(playerMsg).then(function(result) {
-                                    console.log(playerMsg.playerID + " player record created...");
-                                    ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, playerMsg.faction).toJSON());
-                                });
-                            } else {
-                                throw new Error("player has troops!!!");
-                            }
-                            break;
+                var loadTroops = function(msg) {
+                    console.log("-----------");
+                    console.log(msg);
+                    console.log("-----------------------");
+                    var unitArray = msg.toUnitArray();
+                    msg.troops = msg.troops2String();
+                    var whereConditiion = {
+                        where : {
+                            battleID : msg.battleID,
+                            playerID : msg.playerID,
+                            faction : msg.faction
                         }
-                        case 1 : {
-                            var record = result.rows[0];
-                            if (playerMsg.playerID === record.getDataValue("playerID") && record.getDataValue("troops") == null) {
-                                // player ID 已经存在但是不完整。
-                                if (parsedMsg.troops == null) {
-                                    console.log("to config troops...");
-                                    ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, playerMsg.faction).toJSON());
-                                } else {
-                                    var troopsArray = playerMsg.troops;
-                                    playerMsg.troops = playerMsg.troops2String();
-                                    Player.update(palyerMsg.getMsg(), condition).then(function(result) {
-                                        if (result.affectedCount === troopsArray) {
-                                            troopsArray.forEach(function(unit) {
-                                            })
-                                        }
-                                    })
-                                }
-                            } else if (playerMsg.playerID === record.getDataValue("playerID") && record.getDataValue("troops") != null) {
-                                // playerID 已经存在并且完整。开始配置另一个player
-                                console.log("to another player...");
-                                ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, otherFaction).toJSON());
-                            } else {
-                                // player ID 不存在。继续配置该player的troops。结束配置后进入war状态。
-                                Player.create(playerMsg, condition).then(function(result) {
-                                    console.log(playerMsg.playerID + " player record created...");
-                                    ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, local.messageCode.CLOSE_TO_WAR).toJSON());
-                                });
-                            }
-                            break;
-                        }
-                        case 2 : {
-                            // 在case 2的情况中集中处理single battle状况中配置不完全就掉线的情况，以及seperate battle的配置情况。 
-                            var rightRecord, rightIter, otherRecord;
-                            result.forEach(function(record, iter) {
-                                if (record.getDataValue("playerID") === playerMsg.playerID) {
-                                    rightRecord = record;
-                                    rightIter = iter;
-                                }
+                    }
+                    Player.update(msg.getMsg(), whereConditiion).then(function(result) {
+                        console.log(result);
+                        console.log("player troops load successfully...");
+                        unitArray.forEach(function(unit, iter) {
+                            Unit.create(unit).then(function(result) {
+                                console.log(iter + " unit load successfully");
+                                ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, msg.otherFaction).toJSON());
                             })
-                            otherRecord = result[result.length - iter];
-                            if (rightRecord != null && rightRecord.playerID != otherRecord.playerID) {
-                                // 找到两条合法的记录
-                                if (rightRecord.troops == null) {
-                                    // 该记录不完整
-                                    console.log("to config troops...");
-                                    ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, playerMsg.faction).toJSON());
-                                } else if (otherRecord.troops == null) {
-                                    // 该记录完整，另一条记录不完整。
+                        })
+                    })
+                }
+                var checkPlayerRecord = function(msg) {
+                    // 检查传入的player msg与player_table之间的关系，来返回检查结果，控制user config流程。
+                    Player.findAndCount(condition).then(function(result) {
+                        switch (result.count) {
+                            case 0 : {
+                                if (msg.troops == null) {
+                                    Player.create(msg).then(function(result) {
+                                        console.log(msg.playerID + " player record created...");
+                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, msg.faction).toJSON());
+                                    });
+                                } else {
+                                    throw new Error("player has troops!!!");
+                                }
+                                break;
+                            }
+                            case 1 : {
+                                var record = result.rows[0];
+                                if (msg.playerID === record.getDataValue("playerID") && record.getDataValue("troops") == null) {
+                                    // player ID 已经存在但是不完整。
+                                    if (msg.troops == null) {
+                                        // troops为空，说明数据来自unit config开始的通报
+                                        console.log("to config troops...");
+                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, msg.faction).toJSON());
+                                    } else {
+                                        // troops不为空，说明数据来自Unit config完成后的数据提交
+                                        console.log("...1 record to load troops...");
+                                        loadTroops(msg);
+                                    }
+                                } else if (msg.playerID === record.getDataValue("playerID") && record.getDataValue("troops") != null) {
+                                    // playerID 已经存在并且完整。开始配置另一个player
                                     console.log("to another player...");
                                     ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, otherFaction).toJSON());
                                 } else {
-                                    // 两条完整记录都存在。
-                                    console.log("ready to war");
-                                    ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, local.messageCode.WAR_BEGIN).toJSON());
+                                    // player ID 不存在。继续配置该player的troops。结束配置后进入war状态。
+                                    Player.create(msg, condition).then(function(result) {
+                                        console.log(msg.playerID + " player record created...");
+                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, local.messageCode.CLOSE_TO_WAR).toJSON());
+                                    });
                                 }
-                            } else {
-                                // 没有找到playerID匹配的记录，那么丢弃所有已经找到的记录，然后将playerMsg插入，并进入unit config界面
-                                console.log("double players record founded with mistakes...");
+                                break;
+                            }
+                            case 2 : {
+                                // 在case 2的情况中集中处理single battle状况中配置不完全就掉线的情况，以及seperate battle的配置情况。 
+                                var rightRecord, rightIter, otherRecord;
+                                result.rows.forEach(function(record, iter) {
+                                    if (record.getDataValue("playerID") === msg.playerID) {
+                                        rightRecord = record;
+                                        rightIter = iter;
+                                    }
+                                })
+                                otherRecord = result.rows[rightIter === 1 ? 0 : 1];
+                                if (rightRecord != null && rightRecord.playerID != otherRecord.playerID) {
+                                    // 找到两条合法的记录
+                                    if (rightRecord.troops == null) {
+                                        // 该记录不完整
+                                        if (msg.troops == null) {
+                                            console.log("to config troops...");
+                                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, msg.faction).toJSON());
+                                        } else {
+                                            console.log("...2 record to load troops...");
+                                            loadTroops(msg);
+                                        }
+                                    } else if (otherRecord.troops == null) {
+                                        // 该记录完整，另一条记录不完整。
+                                        console.log("to another player...");
+                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, otherFaction).toJSON());
+                                    } else {
+                                        // 两条完整记录都存在。
+                                        console.log("ready to war");
+                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, local.messageCode.WAR_BEGIN).toJSON());
+                                    }
+                                } else {
+                                    // 没有找到playerID匹配的记录，那么丢弃所有已经找到的记录，然后将playerMsg插入，并进入unit config界面
+                                    console.log("double players record founded with mistakes...");
+                                    Player.destroy(condition).then(function(result) {
+                                        console.log("drop records successfully...");
+                                        Player.create(msg).then(function(result) {
+                                            console.log("new player record created...");
+                                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, local.msg.faction).toJSON());
+                                        });
+                                    })
+                                }
+                                break;
+                            }
+                            default : {
+                                console.log("multiple players founed...");
                                 Player.destroy(condition).then(function(result) {
                                     console.log("drop records successfully...");
-                                    Player.create(playerMsg).then(function(result) {
+                                    Player.create(msg).then(function(result) {
                                         console.log("new player record created...");
-                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, local.playerMsg.faction).toJSON());
+                                        ws.send(new WebMsg(WebMsg.TYPE_CLASS.CODE_DATA, msg.faction).toJSON());
                                     });
                                 })
                             }
-                            break;
                         }
-                        default : {
-                            console.log("multiple players founed...");
-                            Player.destroy(condition).then(function(result) {
-                                console.log("drop records successfully...");
-                                Player.create(playerMsg).then(function(result) {
-                                    console.log("new player record created...");
-                                    ws.send(new WebMsg(WebMsg.TYPE_CLASS.CODE_DATA, playerMsg.faction).toJSON());
-                                });
-                            })
-                        }
-                    }
-                })
+                    })
+                }
+                checkPlayerRecord(playerMsg);
                 break;
             }
             case local.WebMsg.TYPE_CLASS.MSG : {

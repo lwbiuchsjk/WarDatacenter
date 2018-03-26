@@ -181,8 +181,13 @@ PlayerMsg.prototype = {
         }
     },
     troops2String : function() {
+        var self = this;
         if (this._troops instanceof Array) {
-            return this._troops.join(this._seprateMark);
+            var stringTroops = "";
+            this._troops.forEach(function(unit) {
+                stringTroops += unit.serialNumber + self._seprateMark;
+            });
+            return stringTroops;
         } else {
             throw new Error("troops is not Array...");
         }
@@ -193,6 +198,16 @@ PlayerMsg.prototype = {
         } else {
             throw new Error("wrong faction format!!!");
         }
+    },
+    toUnitArray : function() {
+        // 用于数据转换，转换为unit_table适用的数据格式。主要是加入一个playerID字段。
+        var array = [];
+        this._troops.forEach(function(rawUnit) {
+            var unit = rawUnit;
+            unit["playerID"] = this._playerID;
+            array.push(unit);
+        });
+        return array;
     }
 };
 
