@@ -1,13 +1,12 @@
 module.exports = function(sequelize, DataTypes) {
     return sequelize.define("unit_table", {
-        playerID : DataTypes.INTEGER,
         unit : DataTypes.STRING,
         life : DataTypes.INTEGER,
         status : DataTypes.STRING,
         position : DataTypes.STRING,
         title : DataTypes.INTEGER,
         faction : DataTypes.STRING,
-        serialNumber : DataTypes.INTEGER,
+        serialNumber : DataTypes.STRING,
         sequence : DataTypes.STRING,
         attackWeapon : DataTypes.INTEGER,
         attackFormation : DataTypes.INTEGER,

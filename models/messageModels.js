@@ -47,13 +47,9 @@ var messageCode = {
     LOAD_TROOPS_TO_SERVER : "loadTroopsServer",    
     DELETE_TROOPS : "deleteTroops",
     WAR_BEGIN : "warBegin",
-    FACTION_FILE : "factionTroops.json",
-    FACTION_FILE_TEMPLATE : {
-        attackFaction : null,
-        defenceFaction : null,
-    },
     LOAD_UNIT_TEMPLATE : "loadUnitTemplate",
     CHECK_PLAYER : "checkPlayer",
+    CHECK_BATTLE_PROP : "CHECK_BATTLE_PROP",
     SET_SINGLE_BATTLE : "setSingleBattle",
     SET_MULTI_BATTLE : "setMuLtiBattle"
 };
@@ -68,22 +64,21 @@ var TYPE_CLASS = {
     UNIT_DATA : "UNIT_DATA",
     BATTLE_DATA : "BATTLE_DATA",
     PLAYER_DATA : "PLAYER_DATA",
-};
-
-var checkInput = function(msgType) {
-    return (msgType in TYPE_CLASS)
+    CHECK_BATTLE_PROP : "CHECK_BATTLE_PROP",
+    // LOAD_TROOPS_TO_CLIENT 使用的是 PlayerMsg 格式。通过其中的 battleID 来检索player记录，然后读取troops信息，将查询结果返回。
+    LOAD_TROOPS_TO_CLIENT : "LOAD_TROOPS_TO_CLIENT",
 };
 
 var PlayerMsg = function() {
     /*
-     * arguments : battleID | playerInfo | battleID - faction | battleID - faction - playerID - troops
+     * arguments : battleID | playerInfo | battleID - playerID | battleID - faction - playerID - troops
      */
     this._battleID = 0;
     this._playerID = 0;
     this._faction = "";
     this._otherFaction = "";
     this._troops = null;
-    this._seprateMark = ";";
+    this._seperateMark = ";";
     switch (arguments.length) {
         case 1 : {
             if (typeof arguments[0] === "number") {
@@ -94,17 +89,18 @@ var PlayerMsg = function() {
                 this._playerID = arguments[0]["playerID"];
                 this._faction = arguments[0]["faction"];
                 this._troops = arguments[0]["troops"];
-                this._getOtherFaction();
+                if (this._faction != null && this._faction != "") {
+                    this._getOtherFaction();
+                }
             } else {
                 throw new Error("WRONG play msg format");
             }
             break;
         }
         case 2 : {
-            if (typeof arguments[0] === "number" && typeof arguments[1] === "string") {
+            if (typeof arguments[0] === "number" && typeof arguments[1] === "number") {
                 this._battleID = arguments[0];
-                this._faction = arguments[1];
-                this._getOtherFaction();
+                this._playerID = arguments[1];
             } else {
                 throw new Error("WRONG play msg format");
             }
@@ -112,7 +108,7 @@ var PlayerMsg = function() {
         }
         case 4 : {
             if (typeof arguments[0] === "number" && typeof arguments[1] === "string" &&
-            typeof arguments[2] === "number" && arguments[3] instanceof Array) {
+                typeof arguments[2] === "number" && arguments[3] instanceof Array) {
                 this._battleID = arguments[0];
                 this._faction = arguments[1];
                 this._playerID = arguments[2];
@@ -174,18 +170,24 @@ PlayerMsg.prototype = {
         return this._faction === "";
     },
     troops2Array : function() {
-        if (typeof this._troops === "string") {
-            return this._troops.split(this._seprateMark);
+        var string;
+        if (arguments.length === 0 && typeof this._troops === "string") {
+            string = this._troops;
+        } else if (arguments.length === 1 && typeof arguments[0] === "string") {
+            string = arguments[0];
         } else {
-            throw new Error("troops is not String...")
+            throw new Error("wrong troops input...")
         }
+        // 注意，此时return的数组，最后一个一定是""。这是因为string troops以_seperateMark结尾。因此在这里处理掉。
+        var array = string.split(this._seperateMark);
+        return array.slice(0, array.length)
     },
     troops2String : function() {
         var self = this;
         if (this._troops instanceof Array) {
             var stringTroops = "";
             this._troops.forEach(function(unit) {
-                stringTroops += unit.serialNumber + self._seprateMark;
+                stringTroops += unit.serialNumber + self._seperateMark;
             });
             return stringTroops;
         } else {
@@ -198,16 +200,6 @@ PlayerMsg.prototype = {
         } else {
             throw new Error("wrong faction format!!!");
         }
-    },
-    toUnitArray : function() {
-        // 用于数据转换，转换为unit_table适用的数据格式。主要是加入一个playerID字段。
-        var array = [];
-        this._troops.forEach(function(rawUnit) {
-            var unit = rawUnit;
-            unit["playerID"] = this._playerID;
-            array.push(unit);
-        });
-        return array;
     }
 };
 
@@ -254,6 +246,45 @@ BattleMsg.prototype = {
             battleID : wrapMsg._battleID,
             battleProp : wrapMsg._battleProp
         };
+    }
+};
+
+var UnitMsg = function() {
+    /*
+     * arguments = playerID && troops | playerID | playerID - troops |
+     */
+    this._playerID = 0;
+    this._troops = [];
+    if (arguments.length === 1) {
+        if (typeof arguments[0] === "object" && "playerID" in arguments[0] && "troops" in arguments[0]) {
+            this._playerID = arguments[0].playerID;
+            this._troops = arguments[0].troops;
+        } else if (typeof arguments[0] === "number") {
+            this._playerID = arguments[0]
+        }
+    } else if (arguments.length === 2 && typeof arguments[0] === "number" && arguments[1] instanceof Array) {
+        this._playerID = arguments[0];
+        this._troops = arguments[1];
+    } else {
+        throw new Error("wrong unit msg input");
+    }
+};
+UnitMsg.prototype = {
+    get playerID() {
+        return this._playerID;
+    },
+    get troops () {
+        return this._troops;
+    },
+    set troops (value) {
+        this._troops = value;
+    },
+    getMsg : function() {
+        var self = this;
+        return {
+            playerID : self._playerID,
+            troops : self._troops
+        }
     }
 };
 
@@ -312,3 +343,4 @@ exports.messageCode = messageCode;
 exports.WebMsg = WebMsg;
 exports.PlayerMsg = PlayerMsg;
 exports.BattleMsg = BattleMsg;
+exports.UnitMsg = UnitMsg;

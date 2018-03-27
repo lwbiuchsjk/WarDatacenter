@@ -1,4 +1,4 @@
-var local = require("./template");
+var local = require("./messageModels");
 
 module.exports = function(sequelize, DataTypes) {
     return sequelize.define("battle_table", {

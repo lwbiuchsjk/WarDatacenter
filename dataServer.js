@@ -1,4 +1,4 @@
-var local = require("./models/template");
+var local = require("./models/messageModels");
 var http = require('http');
 var url = require('url');
 var path = require('path');
@@ -87,32 +87,6 @@ wss.on("connection", function connection(ws, req) {
                             })
                         break;
                     }
-                    case local.messageCode.LOAD_TROOPS_TO_CLIENT : {
-                        var attackFaction = {
-                            faction : local.armyTemplate.faction.attackFaction,
-                            troops : []
-                        },
-                            defenceFaction = {
-                            faction : local.armyTemplate.faction.defenceFaction,
-                            troops : []
-                        }
-                        Unit.findAll({where : {faction : attackFaction.faction}})
-                        .then(function(troops) {
-                            console.log(troops);
-                            troops.forEach(function(unit) {
-                                attackFaction.troops.push(unit.get({plain : true}));
-                            })
-                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, attackFaction).toJSON());
-                        })
-                        Unit.findAll({where : {faction : defenceFaction.faction}})
-                        .then(function(troops) {
-                            troops.forEach(function(unit) {
-                                defenceFaction.troops.push(unit.get({plain : true}));
-                            })
-                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, defenceFaction).toJSON());
-                        })
-                        break;
-                    }
                     default : {
                         console.log(parsedMsg.value)
                     }
@@ -178,7 +152,7 @@ wss.on("connection", function connection(ws, req) {
                     }
                     var loadTroops = function() {
                         // 装载troops。并在成功后查询battle condition的记录
-                        var unitArray = playerMsg.toUnitArray();
+                        var unitArray = playerMsg.troops;
                         Player.update({
                             troops : playerMsg.troops2String()  
                         }, playerCondition).then(function(result) {
@@ -238,7 +212,6 @@ wss.on("connection", function connection(ws, req) {
                         }
                         Player.create(playerMsg.getMsg()).then(function(result) {
                             console.log("..." + playerMsg.playerID + " player record created...");
-                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, playerMsg.faction).toJSON());       
                             checkPlayerRecord();            
                         })
                     }
@@ -284,6 +257,53 @@ wss.on("connection", function connection(ws, req) {
                     })
                 }
                 checkPlayerRecord();
+                break;
+            }
+            case local.WebMsg.TYPE_CLASS.LOAD_TROOPS_TO_CLIENT : {
+                var playerMsg = new local.PlayerMsg(parsedMsg.value);
+                var battleCondition = {
+                    where : {
+                        battleID : playerMsg.battleID,
+                        playerID : {
+                            $not : playerMsg.playerID
+                        }
+                    }
+                }
+                Player.findAll(battleCondition).then(function(result) {
+                    if (result.length === 1) {
+                        console.log("...find 2 player in battle...");
+                        var playerOne = result[0].playerID,
+                            troopsOne = [],
+                            arrayTroops1 = playerMsg.troops2Array(result[0].troops);
+                        var orCondition = [];
+                        arrayTroops1.forEach(function(serial) {
+                            orCondition.push({serialNumber : serial});
+                        })
+                        Unit.findAll({where : {$or : orCondition}}).then(function(unitRecord) {
+                            unitRecord.forEach(function(record, iter) {
+                                troopsOne.push(record.get({plain : true}));
+                                console.log("...load " + iter + " unit in troops...");
+                            })
+                            console.log("...send " + playerOne + " troops successfully...");                                
+                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, new local.UnitMsg(playerOne, troopsOne).getMsg()).toJSON());
+                        })
+                    } else {
+                        throw new Error("...wrong player number...");
+                    }
+                })
+                break;
+            }
+            case local.WebMsg.TYPE_CLASS.CHECK_BATTLE_PROP : {
+                var battleMsg = new local.BattleMsg(parsedMsg.value);
+                Battle.findAll({where : {battleID : battleMsg.battleID}}).then(function(result) {
+                    if (result.length === 1) {
+                        console.log("...get battle record...");
+                        battleMsg.battleProp = result[0].battleProp;
+                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CHECK_BATTLE_PROP, battleMsg.getMsg()).toJSON());
+                    } else {
+                        throw new Error("...get multiple same battle with ID: " + battleMsg.battleID + "...");
+                    }
+                })
                 break;
             }
             case local.WebMsg.TYPE_CLASS.MSG : {
