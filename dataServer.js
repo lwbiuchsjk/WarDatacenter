@@ -162,7 +162,7 @@ wss.on("connection", function connection(ws, req) {
                             if (result.count) {
                                 updateMsg = result.rows[0].get({plain : true});
                             } else {
-                                updateMsg = playerMsg.get();
+                                updateMsg = playerMsg.getMsg();
                             }
                             updateMsg.active = local.PlayerMsg.STATUS.ACTIVE;
                             Player.upsert(updateMsg).then(function(created) {
