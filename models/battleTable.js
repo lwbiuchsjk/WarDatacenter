@@ -2,7 +2,10 @@ var local = require("./messageModels");
 
 module.exports = function(sequelize, DataTypes) {
     return sequelize.define("battle_table", {
-        battleID : DataTypes.INTEGER,
+        battleID : {
+            type : DataTypes.INTEGER,
+            unique : true
+        },
         battleProp : {
             type : DataTypes.STRING,
             validate : {

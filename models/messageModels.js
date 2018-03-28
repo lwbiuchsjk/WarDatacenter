@@ -54,10 +54,6 @@ var messageCode = {
     SET_MULTI_BATTLE : "setMuLtiBattle"
 };
 
-MessageChecker = function() {
-    this.type = null;
-    this.value = null;
-};
 var TYPE_CLASS = {
     MSG : "MSG",
     CODE_DATA : "CODE_DATA",
@@ -178,12 +174,12 @@ PlayerMsg.prototype = {
     checkPlayerInBattle : function(playerID, faction) {
         if (playerID == this._playerID) {
             if (faction == this._faction) {
-                return PlayerMsg.CHECK_RIGHT;
+                return PlayerMsg.STATUS.CHECK_RIGHT;
             } else {
-                return PlayerMsg.CHECK_WRONG;
+                return PlayerMsg.STATUS.CHECK_WRONG;
             }
         } else {
-            return PlayerMsg.EXACT_CHECK_WRONG;
+            return PlayerMsg.STATUS.EXACT_CHECK_WRONG;
         }
     },
 
@@ -193,7 +189,8 @@ PlayerMsg.prototype = {
             battleID : wrapMsg._battleID,
             faction : wrapMsg._faction,
             playerID : wrapMsg._playerID,
-            troops : wrapMsg._troops
+            troops : wrapMsg._troops,
+            active : wrapMsg._active
         };
     },
     checkConfigReady : function() {
