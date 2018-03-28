@@ -52,7 +52,7 @@ fs.open(unitConfigFile, "r", function(error, fd) {
                     }
                     UnitTemplate.create(unit)
                     .then(function (result) {
-                        console.log("data reload ready...");
+                        console.log("...data reload ready...");
                     })
                     .catch(function (err) {
                         console.log(err);
@@ -152,7 +152,7 @@ wss.on("connection", function connection(ws, req) {
                             ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, msg).toJSON());
                         })
                     }
-                    var activePlayer = function(msg) {
+                    var activePlayer = function(loadTroopsMsg, skipTroopsMsg) {
                         if (playerMsg.troops != null) {
                             throw new Error("real troops in new record");
                         }
@@ -174,9 +174,11 @@ wss.on("connection", function connection(ws, req) {
                                     console.log(stringMsg);
                                     ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.MSG, stringMsg).toJSON());
                                     if (updateMsg.troops == null) {
-                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, msg).toJSON());
+                                        console.log("...go to " + loadTroopsMsg + "...");
+                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, loadTroopsMsg).toJSON());
                                     } else {
-                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, playerMsg.otherFaction).toJSON());
+                                        console.log("...go to " + skipTroopsMsg + "...");
+                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.CODE_DATA, skipTroopsMsg).toJSON());
                                     }
                                 }
                             })
@@ -187,7 +189,7 @@ wss.on("connection", function connection(ws, req) {
                             // 查询 battleCondition 的记录条目，即查询当前 battle 中被 ACTIVE 的记录条目。
                             case 0 : {
                                 // 如果没有匹配，那么就创建记录
-                                activePlayer(playerMsg.faction);
+                                activePlayer(playerMsg.faction, playerMsg.otherFaction);
                                 break;
                             }
                             case 1 : {
@@ -221,7 +223,7 @@ wss.on("connection", function connection(ws, req) {
                                     }
                                     case local.PlayerMsg.STATUS.EXACT_CHECK_WRONG : {
                                         // 如果当前记录player信息与输入数据严格不匹配，那么激活当前数据。
-                                        activePlayer(local.messageCode.CLOSE_TO_WAR);
+                                        activePlayer(local.messageCode.CLOSE_TO_WAR, local.messageCode.WAR_BEGIN);
                                         break;
                                     }
                                     default : {
@@ -297,29 +299,39 @@ wss.on("connection", function connection(ws, req) {
                 var playerMsg = new local.PlayerMsg(parsedMsg.value);
                 var battleCondition = {
                     where : {
-                        battleID : playerMsg.battleID,
-                        playerID : {
-                            $not : playerMsg.playerID
-                        }
+                        battleID : playerMsg.battleID
                     }
                 }
                 Player.findAll(battleCondition).then(function(result) {
-                    if (result.length === 1) {
+                    if (result.length === 2) {
                         console.log("...find 2 player in battle...");
                         var playerOne = result[0].playerID,
+                            playerTwo = result[1].playerID,
                             troopsOne = [],
-                            arrayTroops1 = playerMsg.troops2Array(result[0].troops);
-                        var orCondition = [];
-                        arrayTroops1.forEach(function(serial) {
-                            orCondition.push({serialNumber : serial});
+                            troopsTwo = [],
+                            orConditionOne = [],
+                            orConditionTwo = [];
+                        playerMsg.troops2Array(result[0].troops).forEach(function(serial) {
+                            orConditionOne.push({serialNumber : serial});
                         })
-                        Unit.findAll({where : {$or : orCondition}}).then(function(unitRecord) {
+                        Unit.findAll({where : {$or : orConditionOne}}).then(function(unitRecord) {
                             unitRecord.forEach(function(record, iter) {
                                 troopsOne.push(record.get({plain : true}));
                                 console.log("...load " + iter + " unit in troops...");
                             })
-                            console.log("...send " + playerOne + " troops successfully...");                                
+                            console.log("...send " + playerOne + " troops " + troopsOne.length + " successfully...");                                
                             ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, new local.UnitMsg(playerOne, troopsOne).getMsg()).toJSON());
+                        })
+                        playerMsg.troops2Array(result[1].troops).forEach(function(serial) {
+                            orConditionTwo.push({serialNumber : serial});
+                        })
+                        Unit.findAll({where : {$or : orConditionTwo}}).then(function(unitRecord) {
+                            unitRecord.forEach(function(record, iter) {
+                                troopsTwo.push(record.get({plain : true}));
+                                console.log("...load " + iter + " unit in troops...");
+                            })
+                            console.log("...send " + playerTwo + " troops " + troopsTwo.length + " successfully...");                                
+                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, new local.UnitMsg(playerTwo, troopsTwo).getMsg()).toJSON());
                         })
                     } else {
                         throw new Error("...wrong player number...");
@@ -352,7 +364,6 @@ wss.on("connection", function connection(ws, req) {
     })
 
     ws.on("close", function(data) {
-        Unit.sync({force : true});
         console.log("connection is cancelled by client!!!");
     });
 });
