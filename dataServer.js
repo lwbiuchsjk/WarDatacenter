@@ -319,19 +319,18 @@ wss.on("connection", function connection(ws, req) {
                                 troopsOne.push(record.get({plain : true}));
                                 console.log("...load " + iter + " unit in troops...");
                             })
-                            console.log("...send " + playerOne + " troops " + troopsOne.length + " successfully...");                                
-                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, new local.UnitMsg(playerOne, troopsOne).getMsg()).toJSON());
-                        })
-                        playerMsg.troops2Array(result[1].troops).forEach(function(serial) {
-                            orConditionTwo.push({serialNumber : serial});
-                        })
-                        Unit.findAll({where : {$or : orConditionTwo}}).then(function(unitRecord) {
-                            unitRecord.forEach(function(record, iter) {
-                                troopsTwo.push(record.get({plain : true}));
-                                console.log("...load " + iter + " unit in troops...");
+                            playerMsg.troops2Array(result[1].troops).forEach(function(serial) {
+                                orConditionTwo.push({serialNumber : serial});
                             })
-                            console.log("...send " + playerTwo + " troops " + troopsTwo.length + " successfully...");                                
-                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, new local.UnitMsg(playerTwo, troopsTwo).getMsg()).toJSON());
+                            Unit.findAll({where : {$or : orConditionTwo}}).then(function(unitRecord) {
+                                unitRecord.forEach(function(record, iter) {
+                                    troopsTwo.push(record.get({plain : true}));
+                                    console.log("...load " + iter + " unit in troops...");
+                                })
+                                console.log("...send troops successfully...");  
+                                // 将查询结果放在一个array中传送。                              
+                                ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, [new local.UnitMsg(playerOne, troopsOne).getMsg(), new local.UnitMsg(playerTwo, troopsTwo).getMsg()]).toJSON());
+                            })
                         })
                     } else {
                         throw new Error("...wrong player number...");
