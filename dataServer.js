@@ -20,6 +20,7 @@ var UnitTemplate = sequelize.import("./models/unit_template");
 var Unit = sequelize.import("./models/unit");
 var Battle = sequelize.import("./models/battleTable");
 var Player = sequelize.import("./models/playerTable");
+var FightProcess = sequelize.import("./models/fightProcessTable");
 
 
 //var models = require("./models");
@@ -66,10 +67,13 @@ Battle.sync();
 Player.sync().then(function(result) {
     Player.update({active : local.PlayerMsg.STATUS.SLEEP}, {where : {active : local.PlayerMsg.STATUS.ACTIVE}});
 } );;
+FightProcess.sync({force : true});
 
 wss.on("connection", function connection(ws, req) {
     console.log("connect open");
     ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.MSG, helloMsg).toJSON());
+    
+    var testRound = 0;
 
     ws.on("message", function(msg) {
         var parsedMsg = new local.WebMsg(msg);
@@ -353,6 +357,13 @@ wss.on("connection", function connection(ws, req) {
             }
             case local.WebMsg.TYPE_CLASS.MSG : {
                 console.log("client msg : " + parsedMsg.value);
+                break;
+            }
+            case local.WebMsg.TYPE_CLASS.FIGHT_PROCESS_DATA : {
+                var fightMsg = new local.FightProcessMsg(parsedMsg.value);
+                FightProcess.create(fightMsg.getMsg()).then(function(resulte) {
+                    console.log("...fight process write in table...");
+                })
                 break;
             }
             default : {

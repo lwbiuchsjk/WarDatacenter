@@ -57,12 +57,16 @@ var messageCode = {
 var TYPE_CLASS = {
     MSG : "MSG",
     CODE_DATA : "CODE_DATA",
+    // UNIT_DATA 使用的是UnitMsg 格式。
     UNIT_DATA : "UNIT_DATA",
     BATTLE_DATA : "BATTLE_DATA",
     PLAYER_DATA : "PLAYER_DATA",
+    // CHECK_BATTLE_PROP 使用的是 BattleMsg 格式。通过其中的 battleID 来查询对应的battleProp，将查询结果返回。
     CHECK_BATTLE_PROP : "CHECK_BATTLE_PROP",
     // LOAD_TROOPS_TO_CLIENT 使用的是 PlayerMsg 格式。通过其中的 battleID 来检索player记录，然后读取troops信息，将查询结果返回。
     LOAD_TROOPS_TO_CLIENT : "LOAD_TROOPS_TO_CLIENT",
+    // FIGHT_PROCESS_DATA 使用的是 FightProcessMsg格式。
+    FIGHT_PROCESS_DATA : "FIGHT_PROCESS_DATA"
 };
 
 var PlayerMsg = function() {
@@ -318,6 +322,94 @@ UnitMsg.prototype = {
     }
 };
 
+var FightProcessMsg = function() {
+    // argument : fightInfo | battleID | battleID - driveUnit - sufferUnit - status - driveLife - sufferLife - round
+    this._battleID = 0;
+    this._driveUnit = "";
+    this._sufferUnit = "";
+    this._status = "";
+    this._driveLife = 0;
+    this._sufferLife = 0;
+    this._round = 0;
+    if (arguments.length === 1) {
+        if (typeof arguments[0] === "object" && "battleID" in arguments[0] && "driveUnit" in arguments[0] && "sufferUnit" in arguments[0] &&
+            "status" in arguments[0] && "driveLife" in arguments[0] && "sufferLife" in arguments[0] && "round" in arguments[0]) {
+            this._battleID = arguments[0]["battleID"];
+            this._driveUnit = arguments[0]["driveUnit"];
+            this._sufferUnit = arguments[0]["sufferUnit"];
+            this._status = arguments[0]["status"];
+            this._driveLife = arguments[0]["driveLife"];
+            this._sufferLife = arguments[0]["sufferLife"];
+            this._round = arguments[0]["round"];
+        } else if (typeof arguments[0] === "number") {
+            this._battleID = arguments[0];
+        } else {
+            throw new Error("...wrong single input with FightProccessMsg...")
+        }
+    } else if (arguments.length === 7 &&
+        typeof arguments[0] === "number" && typeof arguments[1] === "string" && typeof arguments[2] === "string" &&
+        typeof arguments[3] === "string" && typeof arguments[4] === "number" && typeof arguments[5] === "number" && typeof arguments[6] === "number") {
+        this._battleID = arguments[0];
+        this._driveUnit = arguments[1];
+        this._sufferUnit = arguments[2];
+        this._status = arguments[3];
+        this._driveLife = arguments[4];
+        this._sufferLife = arguments[5];
+        this._round = arguments[6];
+    } else {
+        throw new Error("...wrong input with FightProccessMsg...");
+    }
+};
+FightProcessMsg.prototype = {
+    set driveUnit (value) {
+        this._driveUnit = value;
+    },
+    get driveUnit() {
+        return this._driveUnit;
+    },
+    set sufferUnit(value) {
+        this._sufferUnit = value;
+    },
+    get sufferUnit() {
+        return this._sufferUnit;
+    },
+    set status(value) {
+        this._status = value;
+    },
+    get status() {
+        return this._status;
+    },
+    set driveLife(value) {
+        this._driveLife = value;
+    },
+    get driveLife() {
+        return this._driveLife;
+    },
+    set sufferLife (value) {
+        this._sufferLife = value;
+    },
+    get sufferLife() {
+        return this._sufferLife;
+    },
+    set round(value) {
+        this._round = value;
+    },
+    get round() {
+        return this._round;
+    },
+    getMsg () {
+        return {
+            battleID : this._battleID,
+            driveUnit : this._driveUnit,
+            sufferUnit : this._sufferUnit,
+            status : this._status,
+            driveLife : this._driveLife,
+            sufferLife : this._sufferLife,
+            round : this._round
+        }
+    }
+};
+
 var WebMsg = function() {
     this._type = null;
     this._value = null;
@@ -374,3 +466,4 @@ exports.WebMsg = WebMsg;
 exports.PlayerMsg = PlayerMsg;
 exports.BattleMsg = BattleMsg;
 exports.UnitMsg = UnitMsg;
+exports.FightProcessMsg = FightProcessMsg;
