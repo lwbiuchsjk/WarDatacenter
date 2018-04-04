@@ -67,7 +67,7 @@ Battle.sync();
 Player.sync().then(function(result) {
     Player.update({active : local.PlayerMsg.STATUS.SLEEP}, {where : {active : local.PlayerMsg.STATUS.ACTIVE}});
 } );;
-FightProcess.sync({force : true});
+FightProcess.sync({force : false});
 
 wss.on("connection", function connection(ws, req) {
     console.log("connect open");
@@ -330,6 +330,9 @@ wss.on("connection", function connection(ws, req) {
                                 unitRecord.forEach(function(record, iter) {
                                     troopsTwo.push(record.get({plain : true}));
                                     console.log("...load " + iter + " unit in troops...");
+                                })
+                                FightProcess.findAll({where : {battleID : playerMsg.battleID}, attributes : ["sufferUnit", [sequelize.fn("MIN", sequelize.col("sufferLife")), "nowLife"]], group : "sufferUnit", raw : true}).then(function(result) {
+                                    console.log(result);
                                 })
                                 console.log("...send troops successfully...");  
                                 // 将查询结果放在一个array中传送。                              
