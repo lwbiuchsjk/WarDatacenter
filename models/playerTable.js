@@ -1,11 +1,9 @@
 module.exports = function(sequelize, DataTypes) {
     return sequelize.define("player_table", {
         playerID : {
-            type : DataTypes.INTEGER,
+            type : DataTypes.STRING,
             unique : true
         },
-        battleID : DataTypes.INTEGER,
-        faction : DataTypes.STRING,
         troops : DataTypes.STRING,
         active : {
             type : DataTypes.INTEGER,

@@ -15,7 +15,9 @@ module.exports = function(sequelize, DataTypes) {
                     }
                 }
             }
-        }
+        },
+        attackFaction : DataTypes.STRING,
+        defenceFaction : DataTypes.STRING
     }, {
         freezeTableName :true
     })

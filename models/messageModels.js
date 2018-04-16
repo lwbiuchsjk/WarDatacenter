@@ -71,51 +71,36 @@ var TYPE_CLASS = {
 
 var PlayerMsg = function() {
     /*
-     * arguments : battleID | playerInfo | battleID - playerID | battleID - faction - playerID - troops
+     * arguments : playerInfo | playerID | playerID - troops
      */
-    this._battleID = 0;
     this._playerID = 0;
-    this._faction = "";
-    this._otherFaction = "";
     this._troops = null;
     this._active = 0;
     this._seperateMark = ";";
+
+    this._battleID = null;
+    this._faction = null;
+    this._otherFaction = null;
+
     switch (arguments.length) {
         case 1 : {
             if (typeof arguments[0] === "number") {
-                this._battleID = arguments[0];
+                this._playerID = arguments[0];
             } else if (typeof arguments[0] === "object" &&
-                "battleID" in arguments[0] && "playerID" in arguments[0] && "faction" in arguments[0] && "troops" in arguments[0] && "active" in arguments[0]) {
-                this._battleID = arguments[0]["battleID"];
+                "playerID" in arguments[0] && "troops" in arguments[0] && "active" in arguments[0]) {
                 this._playerID = arguments[0]["playerID"];
                 this._faction = arguments[0]["faction"];
                 this._troops = arguments[0]["troops"];
                 this._active = arguments[0].active;
-                if (this._faction != null && this._faction != "") {
-                    this._getOtherFaction();
-                }
             } else {
                 throw new Error("WRONG play msg format");
             }
             break;
         }
         case 2 : {
-            if (typeof arguments[0] === "number" && typeof arguments[1] === "number") {
-                this._battleID = arguments[0];
-                this._playerID = arguments[1];
-            } else {
-                throw new Error("WRONG play msg format");
-            }
-            break;
-        }
-        case 4 : {
-            if (typeof arguments[0] === "number" && typeof arguments[1] === "string" &&
-                typeof arguments[2] === "number" && arguments[3] instanceof Array) {
-                this._battleID = arguments[0];
-                this._faction = arguments[1];
-                this._playerID = arguments[2];
-                this._troops = arguments[3];
-                this._getOtherFaction();
+            if (typeof arguments[0] === "string" && arguments[1] instanceof Array) {
+                this._playerID = arguments[0];
+                this._troops = arguments[1];
             } else {
                 throw new Error("WRONG play msg format");
             }
@@ -135,8 +120,8 @@ PlayerMsg.STATUS = {
     CHECK_WRONG : "CHECK_WRONG"
 };
 PlayerMsg.prototype = {
-    get battleID () {
-        return this._battleID;
+    get playerID () {
+        return this._playerID;
     },
 
     set troops(value) {
@@ -144,24 +129,6 @@ PlayerMsg.prototype = {
     },
     get troops () {
         return this._troops;
-    },
-
-    set playerID(value) {
-        this._playerID = value;
-    },
-    get playerID () {
-        return this._playerID;
-    },
-
-    set faction (value) {
-        this._faction = value;
-        this._getOtherFaction();
-    },
-    get faction () {
-        return this._faction;
-    },
-    get otherFaction () {
-        return this._otherFaction;
     },
 
     set active (value) {
@@ -173,6 +140,20 @@ PlayerMsg.prototype = {
     },
     get active () {
         return this._active;
+    },
+
+    set battleID (value) {
+        this._battleID = value;
+    },
+    get battleID () {
+        return this._battleID;
+    },
+
+    set faction (value) {
+        this._faction = value;
+    },
+    get faction() {
+        return this._faction;
     },
 
     checkPlayerInBattle : function(playerID, faction) {
@@ -190,18 +171,13 @@ PlayerMsg.prototype = {
     getMsg : function() {
         var wrapMsg  = this;
         return {
-            battleID : wrapMsg._battleID,
-            faction : wrapMsg._faction,
             playerID : wrapMsg._playerID,
             troops : wrapMsg._troops,
-            active : wrapMsg._active
+            active : wrapMsg._active,
+
+            battleID : wrapMsg._battleID,
+            faction : wrapMsg._faction
         };
-    },
-    checkConfigReady : function() {
-        return this._playerID != 0 && this._faction != "";
-    },
-    noFaction : function() {
-        return this._faction === "";
     },
     troops2Array : function() {
         var string;
@@ -243,6 +219,8 @@ var BattleMsg = function() {
      */
     this._battleID = 0;
     this._battleProp = "";
+    this._attackFaction = "";
+    this._defenceFaction = "";
     switch(arguments.length) {
         case 1 : {
             if (typeof arguments[0] === "object" && "battleID" in arguments[0] && "battleProp" in arguments[0]) {
@@ -274,11 +252,28 @@ BattleMsg.prototype = {
     get battleProp() {
         return this._battleProp;
     },
+
+    set attackFaction(value) {
+        this._attackFaction = value;
+    },
+    get attackFaction() {
+        return this._attackFaction;
+    },
+
+    set defenceFaction(value) {
+        this._defenceFaction = value;
+    },
+    get defenceFaction() {
+        return this._defenceFaction;
+    },
+
     getMsg : function() {
         var wrapMsg = this;
         return {
             battleID : wrapMsg._battleID,
-            battleProp : wrapMsg._battleProp
+            battleProp : wrapMsg._battleProp,
+            attackFaction : wrapMsg._attackFaction,
+            defenceFaction : wrapMsg._defenceFaction
         };
     }
 };
@@ -287,16 +282,16 @@ var UnitMsg = function() {
     /*
      * arguments = playerID && troops | playerID | playerID - troops |
      */
-    this._playerID = 0;
+    this._playerID = "";
     this._troops = [];
     if (arguments.length === 1) {
         if (typeof arguments[0] === "object" && "playerID" in arguments[0] && "troops" in arguments[0]) {
             this._playerID = arguments[0].playerID;
             this._troops = arguments[0].troops;
-        } else if (typeof arguments[0] === "number") {
+        } else if (typeof arguments[0] === "string") {
             this._playerID = arguments[0]
         }
-    } else if (arguments.length === 2 && typeof arguments[0] === "number" && arguments[1] instanceof Array) {
+    } else if (arguments.length === 2 && typeof arguments[0] === "string" && arguments[1] instanceof Array) {
         this._playerID = arguments[0];
         this._troops = arguments[1];
     } else {

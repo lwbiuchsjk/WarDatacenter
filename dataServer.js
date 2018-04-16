@@ -120,8 +120,24 @@ wss.on("connection", function connection(ws, req) {
                 break;
             }
             case local.WebMsg.TYPE_CLASS.PLAYER_DATA : {
-                var playerMsg = new local.PlayerMsg(parsedMsg.value),
-                    otherFaction = playerMsg.otherFaction;
+                var playerMsg = new local.PlayerMsg(parsedMsg.value);
+                console.log(playerMsg);
+                var getPlayerTrops = function() {
+                    var playerCondition = {
+                        where : {
+                            playerID : playerMsg.playerID
+                        }
+                    }
+                    Player.findOrCreate(playerCondition).spread(function(player, created) {
+                        var unitMsg = new local.UnitMsg(playerMsg.playerID);
+                        if (!created) {
+                            var playerRecord = new local.PlayerMsg(player.get({plain : true}));
+                            unitMsg.troops = playerRecord.troops2Array();
+                        }
+                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());
+                    })
+                }
+                getPlayerTrops();
                 var setPlayerRecord = function() {
                     /*
                      * 检查传入的player msg与player_table之间的关系，来返回检查结果，控制user config流程。
@@ -296,7 +312,7 @@ wss.on("connection", function connection(ws, req) {
                         }
                     })
                 }
-                setPlayerRecord();
+                //setPlayerRecord();
                 break;
             }
             case local.WebMsg.TYPE_CLASS.LOAD_TROOPS_TO_CLIENT : {
