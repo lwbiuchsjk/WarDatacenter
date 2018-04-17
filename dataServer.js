@@ -132,7 +132,11 @@ wss.on("connection", function connection(ws, req) {
                         var unitMsg = new local.UnitMsg(playerMsg.playerID);
                         if (!created) {
                             var playerRecord = new local.PlayerMsg(player.get({plain : true}));
-                            unitMsg.troops = playerRecord.troops2Array();
+                            try {
+                                unitMsg.troops = playerRecord.troops2Array();
+                            } catch (error) {
+                                unitMsg.troops = [];
+                            }
                         }
                         ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());
                     })
