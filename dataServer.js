@@ -128,18 +128,49 @@ wss.on("connection", function connection(ws, req) {
                             playerID : playerMsg.playerID
                         }
                     }
-                    Player.findOrCreate(playerCondition).spread(function(player, created) {
-                        var unitMsg = new local.UnitMsg(playerMsg.playerID);
-                        if (!created) {
-                            var playerRecord = new local.PlayerMsg(player.get({plain : true}));
-                            try {
-                                unitMsg.troops = playerRecord.troops2Array();
-                            } catch (error) {
-                                unitMsg.troops = [];
+                    var unitMsg = new local.UnitMsg(playerMsg.playerID);
+                    if (playerMsg.troops != null) {
+                        // 如果传输数据的troops不为空，说明流程来自unit config结束之后，那么更新player的troops数据，然后将其返回。
+                        var unitArray = playerMsg.troops;
+                        Player.update({
+                            troops : playerMsg.troops2String()  
+                        }, playerCondition).then(function(result) {
+                            unitArray.forEach(function(unit, iter) {
+                                Unit.create(unit).then(function(result) {
+                                    console.log("..." + iter + " unit load successfully...");
+                                });
+                            })
+                            unitMsg.troops = playerMsg.troops;                           
+                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());                        
+                        })
+                    } else {
+                        // 如果传输数据的troops为空，说明流程来自输入playerID时刻，查询或创建该player数据，并返回记录中的troops数据。                        
+                        Player.findOrCreate(playerCondition).spread(function(player, created) {
+                            console.log("...check player info...");
+                            if (!created) {
+                                var playerRecord = new local.PlayerMsg(player.get({plain : true}));
+                                var orCondition = [];
+                                if (playerRecord.troops != null) {
+                                    playerRecord.troops2Array(playerRecord.troops).forEach(function(serial){
+                                        orCondition.push({serialNumber : serial});
+                                    });
+                                    Unit.findAll({where : {$or : orCondition}}).then(function(unitRecord) {
+                                        unitRecord.forEach(function(record, iter) {
+                                            unitMsg.troops.push(record.get({plain : true}));
+                                            console.log("...load " + iter + " unit in troops...");
+                                        })
+                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());
+                                    })
+                                } else {
+                                    console.log("...player " + unitMsg.playerID + " exists...");
+                                    ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());
+                                }  
+                            } else {
+                                console.log("...player " + unitMsg.playerID + " created...");
+                                ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());
                             }
-                        }
-                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());
-                    })
+                        })
+                    }
                 }
                 getPlayerTrops();
                 var setPlayerRecord = function() {

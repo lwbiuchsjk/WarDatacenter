@@ -84,7 +84,7 @@ var PlayerMsg = function() {
 
     switch (arguments.length) {
         case 1 : {
-            if (typeof arguments[0] === "number") {
+            if (typeof arguments[0] === "string") {
                 this._playerID = arguments[0];
             } else if (typeof arguments[0] === "object" &&
                 "playerID" in arguments[0] && "troops" in arguments[0] && "active" in arguments[0]) {
@@ -132,7 +132,7 @@ PlayerMsg.prototype = {
     },
 
     set active (value) {
-        if (value == PlayerMsg.SLEEP || value == PlayerMsg.ACTIVE || value == PlayerMsg.IN_FIGHT) {
+        if (value == PlayerMsg.STATUS.SLEEP || value == PlayerMsg.STATUS.ACTIVE || value == PlayerMsg.STATUS.IN_FIGHT) {
             this._active = value;
         } else {
             throw new Error("...player status set wrong...");
