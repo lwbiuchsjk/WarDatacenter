@@ -10,7 +10,7 @@ module.exports = function(sequelize, DataTypes) {
             type : DataTypes.STRING,
             validate : {
                 isLegal : function(value) {
-                    if (value !== local.messageCode.SET_SINGLE_BATTLE && value !== local.messageCode.SET_MULTI_BATTLE) {
+                    if (value !== local.messageCode.SET_LOCAL_BATTLE && value !== local.messageCode.SET_REMOTE_BATTLE) {
                         throw new Error("battle scene set illegal!!!");
                     }
                 }

@@ -103,34 +103,47 @@ wss.on("connection", function connection(ws, req) {
                 break;
             }
             case local.WebMsg.TYPE_CLASS.BATTLE_DATA : {
+                console.log(parsedMsg.value);
                 var battleMsg = new local.BattleMsg(parsedMsg.value);
-                var condition = {
-                    where : {
-                        battleID : battleMsg.battleID,
+                if (battleMsg.attackFaction != "") {
+                    Battle.create(battleMsg).then(function(result) {
+                        console.log("...battle created...");
+                        Player.update({battleID : battleMsg.battleID}, {where : {playerID : battleMsg.attackFaction}}).then(function(result) {
+                            console.log("...attack player ready...");
+                        })
+                    })
+                } else if (battleMsg.defenceFaction != "") {
+                    Battle.update({defenceFaction : battleMsg.defenceFaction}, {where : {
+                        battleID : battleMsg.battleID, 
                         battleProp : battleMsg.battleProp
-                    }
+                    }}).then(function(result) {
+                        if (result[0] === 1) {
+                            Player.update({battleID : battleMsg.battleID}, {where : {playerID : battleMsg.defenceFaction}}).then(function(result) {
+                                console.log("...defence player ready...");
+                                console.log("...ready ro war...");
+                            })
+                        } else {
+                            throw new Error("...defence player have no battle...");
+                        }
+                    })
                 }
-                Battle.findOrCreate(condition).spread(function(battle, created) {
-                    if (created) {
-                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.MSG, "new battle record...").toJSON());
-                    } else {
-                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.MSG, "battle exsits...").toJSON());
-                    }
-                })
                 break;
             }
             case local.WebMsg.TYPE_CLASS.PLAYER_DATA : {
+                console.log(parsedMsg.value);
+
                 var playerMsg = new local.PlayerMsg(parsedMsg.value);
-                console.log(playerMsg);
                 var getPlayerTrops = function() {
                     var playerCondition = {
                         where : {
                             playerID : playerMsg.playerID
                         }
                     }
-                    var unitMsg = new local.UnitMsg(playerMsg.playerID);
-                    if (playerMsg.troops != null) {
-                        // 如果传输数据的troops不为空，说明流程来自unit config结束之后，那么更新player的troops数据，然后将其返回。
+                    var playerTmp = new local.PlayerMsg(playerMsg.playerID);
+                    if (playerMsg.troops != "") {
+                        /*
+                         * 如果传输数据的troops不为空，那么流程来自unit config结束之后，那么更新player的troops数据，然后将其返回。
+                         */ 
                         var unitArray = playerMsg.troops;
                         Player.update({
                             troops : playerMsg.troops2String()  
@@ -140,8 +153,8 @@ wss.on("connection", function connection(ws, req) {
                                     console.log("..." + iter + " unit load successfully...");
                                 });
                             })
-                            unitMsg.troops = playerMsg.troops;                           
-                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());                        
+                            playerTmp.troops = playerMsg.troops;                           
+                            ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.PLAYER_DATA, playerTmp.getMsg()).toJSON());                        
                         })
                     } else {
                         // 如果传输数据的troops为空，说明流程来自输入playerID时刻，查询或创建该player数据，并返回记录中的troops数据。                        
@@ -156,18 +169,18 @@ wss.on("connection", function connection(ws, req) {
                                     });
                                     Unit.findAll({where : {$or : orCondition}}).then(function(unitRecord) {
                                         unitRecord.forEach(function(record, iter) {
-                                            unitMsg.troops.push(record.get({plain : true}));
+                                            playerTmp.troops.push(record.get({plain : true}));
                                             console.log("...load " + iter + " unit in troops...");
                                         })
-                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());
+                                        ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.PLAYER_DATA, playerTmp.getMsg()).toJSON());
                                     })
                                 } else {
-                                    console.log("...player " + unitMsg.playerID + " exists...");
-                                    ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());
+                                    console.log("...player " + playerTmp.playerID + " exists...");
+                                    ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.PLAYER_DATA, playerTmp.getMsg()).toJSON());
                                 }  
                             } else {
-                                console.log("...player " + unitMsg.playerID + " created...");
-                                ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.UNIT_DATA, unitMsg.getMsg()).toJSON());
+                                console.log("...player " + playerTmp.playerID + " created...");
+                                ws.send(new local.WebMsg(local.WebMsg.TYPE_CLASS.PLAYER_DATA, playerTmp.getMsg()).toJSON());
                             }
                         })
                     }

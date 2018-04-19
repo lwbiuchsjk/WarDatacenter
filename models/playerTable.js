@@ -4,6 +4,8 @@ module.exports = function(sequelize, DataTypes) {
             type : DataTypes.STRING,
             unique : true
         },
+        battleID : DataTypes.INTEGER,
+        faction : DataTypes.STRING,
         troops : DataTypes.STRING,
         active : {
             type : DataTypes.INTEGER,
